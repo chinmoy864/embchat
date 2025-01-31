@@ -19,35 +19,29 @@ jobs:
         with:
           node-version: 16.19.0
 
-      - name: Cache yarn dependencies
+      - name: Cache Yarn dependencies
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.cache/yarn
-            node_modules
-            */*/node_modules
+          path: ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
 
       - name: Install dependencies
-        run: yarn install
+        run: yarn install --frozen-lockfile
 
       - name: Build the project
         run: yarn build
 
       - name: Get installed Playwright version
         id: playwright-version
-        run: echo "version=$(yarn why --json @playwright/test | grep -h 'workspace:.' | jq --raw-output '.children[].locator' | sed -e 's/@playwright\/test@.*://')" >> $GITHUB_OUTPUT
+        run: echo "version=$(yarn list --pattern @playwright/test | grep -o '@playwright/test@[^ ]*' | cut -d'@' -f3)" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
         uses: actions/cache@v3
         id: playwright-cache
         with:
-          path: |
-            ~/.cache/ms-playwright
-            ~/Library/Caches/ms-playwright
-            %USERPROFILE%\AppData\Local\ms-playwright
+          path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/yarn.lock') }}-${{ steps.playwright-version.outputs.version }}
           restore-keys: |
             ${{ runner.os }}-playwright-${{ hashFiles('**/yarn.lock') }}-
