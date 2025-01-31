@@ -13,47 +13,64 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+        
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
         with:
           node-version: 16.19.0
-
-      - name: Cache Yarn dependencies
+          
+      - name: Cache dependencies
         uses: actions/cache@v3
         with:
-          path: ~/.cache/yarn
+          path: ~/.yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
-
+            
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
-
+        run: yarn install
+        
       - name: Build the project
         run: yarn build
-
+        
       - name: Get installed Playwright version
         id: playwright-version
-        run: echo "version=$(yarn list --pattern @playwright/test | grep -o '@playwright/test@[^ ]*' | cut -d'@' -f3)" >> $GITHUB_OUTPUT
+        run: echo "version=$(yarn why --json @playwright/test | grep -h 'workspace:.' | jq --raw-output '.children[].locator' | sed -e 's/@playwright\/test@.*://')" >> $GITHUB_OUTPUT
 
+      # Restore Playwright Cache
       - name: Cache Playwright browsers
-        uses: actions/cache@v3
         id: playwright-cache
+        uses: actions/cache@v3
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/yarn.lock') }}-${{ steps.playwright-version.outputs.version }}
+          key: Linux-playwright-1.41.2
           restore-keys: |
-            ${{ runner.os }}-playwright-${{ hashFiles('**/yarn.lock') }}-
-            ${{ runner.os }}-playwright-
+            Linux-playwright-
 
+      # Debugging Cache Issues
+      - name: Debug Cache
+        run: |
+          ls -lah ~/.cache/ms-playwright || echo "No cache found"
+          du -sh ~/.cache/ms-playwright || echo "No cache found"
+
+      # Install Playwright dependencies only if cache is missing
       - name: Install Playwright's dependencies
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps
 
+      # Save Playwright Cache After Installation
+      - name: Save Playwright Cache
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: Linux-playwright-1.41.2
+
+      # Run Playwright tests
       - name: Run Playwright tests
         run: cd packages/e2e-react && npx playwright test
 
+      # Upload Playwright report
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: always()
