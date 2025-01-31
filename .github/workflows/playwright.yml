@@ -37,19 +37,24 @@ jobs:
         id: playwright-version
         run: echo "version=$(yarn why --json @playwright/test | grep -h 'workspace:.' | jq --raw-output '.children[].locator' | sed -e 's/@playwright\/test@.*://')" >> $GITHUB_OUTPUT
 
+      # Ensure Playwright Cache Path Exists
+      - name: Create Playwright Cache Directory
+        run: mkdir -p ~/.cache/ms-playwright
+
       # Restore Playwright Cache
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@v3
         with:
           path: ~/.cache/ms-playwright
-          key: Linux-playwright-1.41.2
+          key: Linux-playwright-${{ steps.playwright-version.outputs.version }}
           restore-keys: |
             Linux-playwright-
 
-      # Debugging Cache Issues
+      # Debug Cache
       - name: Debug Cache
         run: |
+          echo "Checking if Playwright cache exists..."
           ls -lah ~/.cache/ms-playwright || echo "No cache found"
           du -sh ~/.cache/ms-playwright || echo "No cache found"
 
@@ -58,13 +63,17 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps
 
-      # Save Playwright Cache After Installation
+      # Save Playwright Cache After First Install
       - name: Save Playwright Cache
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v3
         with:
           path: ~/.cache/ms-playwright
-          key: Linux-playwright-1.41.2
+          key: Linux-playwright-${{ steps.playwright-version.outputs.version }}
+
+      # Ensure Playwright is Installed
+      - name: Verify Playwright Installation
+        run: npx playwright --version || echo "Playwright installation failed!"
 
       # Run Playwright tests
       - name: Run Playwright tests
