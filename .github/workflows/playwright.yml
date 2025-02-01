@@ -1,85 +1,53 @@
 name: Playwright Tests
-
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
-
 jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-        
+        uses: actions/checkout@v3
+
       - name: Setup Node.js environment
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: 16.19.0
-          
+
       - name: Cache dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v2
         with:
           path: ~/.yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
-            
       - name: Install dependencies
         run: yarn install
-        
+
       - name: Build the project
-        run: yarn build
-        
+        run: |
+          yarn build
       - name: Get installed Playwright version
         id: playwright-version
-        run: echo "version=$(yarn why --json @playwright/test | grep -h 'workspace:.' | jq --raw-output '.children[].locator' | sed -e 's/@playwright\/test@.*://')" >> $GITHUB_OUTPUT
+        run: echo "::set-output name=version::$(yarn why --json @playwright/test | grep -h 'workspace:.' | jq --raw-output '.children[].locator' | sed -e 's/@playwright\/test@.*://')"
 
-      # Ensure Playwright Cache Path Exists
-      - name: Create Playwright Cache Directory
-        run: mkdir -p ~/.cache/ms-playwright
-
-      # Restore Playwright Cache
-      - name: Cache Playwright browsers
+      - uses: actions/cache@v3
         id: playwright-cache
-        uses: actions/cache@v3
         with:
-          path: ~/.cache/ms-playwright
-          key: Linux-playwright-${{ steps.playwright-version.outputs.version }}
+          path: "~/.cache/ms-playwright"
+          key: "${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}"
           restore-keys: |
-            Linux-playwright-
-
-      # Debug Cache
-      - name: Debug Cache
-        run: |
-          echo "Checking if Playwright cache exists..."
-          ls -lah ~/.cache/ms-playwright || echo "No cache found"
-          du -sh ~/.cache/ms-playwright || echo "No cache found"
-
-      # Install Playwright dependencies only if cache is missing
+            ${{ runner.os }}-playwright-
       - name: Install Playwright's dependencies
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps
 
-      # Save Playwright Cache After First Install
-      - name: Save Playwright Cache
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v3
-        with:
-          path: ~/.cache/ms-playwright
-          key: Linux-playwright-${{ steps.playwright-version.outputs.version }}
-
-      # Ensure Playwright is Installed
-      - name: Verify Playwright Installation
-        run: npx playwright --version || echo "Playwright installation failed!"
-
-      # Run Playwright tests
       - name: Run Playwright tests
         run: cd packages/e2e-react && npx playwright test
 
-      # Upload Playwright report
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: always()
