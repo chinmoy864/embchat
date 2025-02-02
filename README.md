@@ -1,4 +1,3 @@
-<h1 align='center'>Embedded Chat: A staple in excellent customer service</h1>
 
 ![image](https://github.com/RocketChat/EmbeddedChat/assets/78961432/574be6b4-d2f7-4bea-a7b1-4c6e840d8e22)
 
